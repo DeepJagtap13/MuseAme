@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chatbot</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-box" id="chat-box"></div>
+    <div class="input-area">
+      <input type="text" id="user-input" placeholder="Type your question..." autofocus>
+      <button onclick="sendMessage()">Send</button>
+      <button class="voice-button" id="voice-button">
+        <img src="{{ url_for('static', filename='mic_icon.png') }}" alt="Voice Input">
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let isVoiceInput = false; // ✅ Track whether input was from voice
+  
+    // ✅ Voice Recognition (Speech to Text)
+    if ('webkitSpeechRecognition' in window) {
+      const recognition = new webkitSpeechRecognition();
+      recognition.continuous = false;
+      recognition.lang = 'en-US';
+  
+      document.getElementById('voice-button').addEventListener('click', function() {
+        isVoiceInput = true;  // ✅ Set flag when using voice input
+        recognition.start();
+      });
+  
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('user-input').value = transcript;
+        sendMessage();  // ✅ Automatically send after voice input
+      };
+  
+      recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+      };
+    } else {
+      document.getElementById('voice-button').disabled = true;
+    }
+  
+    // ✅ Text-to-Speech (Speak only if input was voice-based)
+    function speakText(text) {
+      if (isVoiceInput && 'speechSynthesis' in window) {
+        const speech = new SpeechSynthesisUtterance(text);
+        speech.lang = 'en-US';
+        speech.rate = 1;
+        window.speechSynthesis.speak(speech);
+      }
+    }
+  
+    // ✅ AJAX Chat Function
+    function sendMessage() {
+      const userInput = document.getElementById('user-input').value.trim();
+      if (userInput !== "") {
+        appendMessage('You', userInput);
+        document.getElementById('user-input').value = '';
+  
+        // Placeholder for bot response
+        const botMessageElement = appendMessage('Bot', '<span class="thinking-icon"></span>');
+  
+        $.ajax({
+          type: 'POST',
+          url: '/ask',
+          data: { user_input: userInput },
+          success: function(data) {
+            botMessageElement.innerHTML = `<strong>Bot:</strong> ${data.response}`;
+  
+            if (isVoiceInput) {
+              speakText(data.response);  // ✅ Speak only if input was voice
+            }
+  
+            isVoiceInput = false;  // ✅ Reset flag after response
+          },
+          error: function(error) {
+            botMessageElement.innerHTML = `<strong>Bot:</strong> Something went wrong.`;
+          }
+        });
+      }
+    }
+  
+    function appendMessage(sender, message) {
+      const chatBox = document.getElementById('chat-box');
+      const messageElement = document.createElement('div');
+      messageElement.classList.add(sender === 'You' ? 'user-message' : 'bot-message');
+      messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return messageElement;
+    }
+  </script>
+  </body>
+</html>
