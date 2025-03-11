@@ -32,7 +32,7 @@ museums_mumbai = {
     "Mani Bhavan Gandhi Museum": "https://www.google.com/maps/place/Mani+Bhavan+Gandhi+Sangrahalaya/@18.9598504,72.8089349,17z/data=!3m1!4b1!4m6!3m5!1s0x3be7ce0c69115555:0xc0b175f791f839fd!8m2!3d18.9598453!4d72.8115152!16zL20vMGI4M3Qx?entry=ttu&g_ep=EgoyMDI1MDIwMy4wIKXMDSoASAFQAw%3D%3D",
     "National Gallery of Modern Art, Mumbai": "https://www.google.com/maps/place/National+Gallery+of+Modern+Art/@18.9257775,72.8288663,17z/data=!3m1!4b1!4m6!3m5!1s0x3be7d1c3d69e9505:0x33783085c701ece!8m2!3d18.9257724!4d72.8314466!16s%2Fm%2F0r4lnv5?entry=ttu&g_ep=EgoyMDI1MDIwMy4wIKXMDSoASAFQAw%3D%3D",
     "Bombay Natural History Society (BNHS) Museum": "https://www.google.com/maps/place/Bombay+Natural+History+Society/@18.9262191,72.8306906,17z/data=!3m1!4b1!4m6!3m5!1s0x3be7d1dcc331fcdf:0x882326d15726feb1!8m2!3d18.926214!4d72.8332709!16s%2Fg%2F1tf274bd?entry=ttu&g_ep=EgoyMDI1MDIwMy4wIKXMDSoASAFQAw%3D%3D",
-    "Dr. Bhau Daji Lad Museum": "https://www.google.com/maps/place/Dr.+Bhau+Daji+Lad+Museum/@18.978994,72.832235,17z/data=!3m1!4b1!4m6!3m5!1s0x3be7ce5b428e70af:0x79efde6c140c2e05!8m2!3d18.9789889!4d72.8348153!16s%2Fm%2F06w4mwg?entry=ttu&g_ep=EgoyMDI1MDIwMy4wIKXMDSoASAFQAw%3D%3D",  # Correct if different
+    "Dr. Bhau Daji Lad Museum": "https://www.google.com/maps/place/Dr.+Bhau+Daji+Lad+Museum/@18.978994,72.832235,17z/data=!3m1!4b1!4m6!3m5!1s0x3be7ce5b428e70af:0x79efde6c140c2e05!8m2!3d18.9789889!4d72.8348153!16s%2Fm%2F06w4mwg?entry=ttu&g_ep=EgoyMDI1MDIwMy4wIKXMDSoASAFQAw%3D%3D",
     "Maharashtra State Police Museum": None,
     "Nehru Science Centre": None,
 }
@@ -94,14 +94,7 @@ def ask():
         if not found_museum:
             response = GenerateResponse(user_input, "\n".join([f"User: {msg['user']}\nBot: {msg['bot']}" for msg in session['chat_history']]))
     elif "book" in user_input or "ticket" in user_input or "booking" in user_input:
-        found_museum = False
-        for museum_name in museums_mumbai:
-            if museum_name.lower() in user_input:
-                response = f"To book tickets for {museum_name}, please visit the booking page: <a href='http://192.168.130.105:5000/bookPage.html' target='_blank'>Booking Page</a>"
-                found_museum = True
-                break
-        if not found_museum:
-            response = "Please specify a museum in Mumbai to book tickets for. For example, 'Book tickets for Chhatrapati Shivaji Maharaj Vastu Sangrahalaya'."
+        response = "Please visit the booking page: <a href='http://192.168.130.105:5000/bookPage.html' target='_blank'>Booking Page</a>"
     else:
         response = GenerateResponse(user_input, "\n".join([f"User: {msg['user']}\nBot: {msg['bot']}" for msg in session['chat_history']]))
     
@@ -109,6 +102,6 @@ def ask():
     session.modified = True
     return jsonify({'response': response})
 
-if __name__ == 'main':
+if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))  # Default to 10000
     app.run(host='0.0.0.0', port=port)
