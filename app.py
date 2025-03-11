@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.config['SESSION_PERMANENT'] = False
 
-genai.configure(api_key="AIzaSyDN93NyjlOTcMOcA3pw6insw2AQGqkDy7k")  # **REPLACE WITH YOUR ACTUAL API KEY**
+genai.configure(api_key="AIzaSyDN93NyjlOTcMOcA3pw6insw2AQGqkDy7k")  # REPLACE WITH YOUR ACTUAL API KEY
 
 generation_config = {
     "temperature": 1,
@@ -62,6 +62,10 @@ def index():
         session['chat_history'] = []
     return render_template('index.html')
 
+@app.route('/admin.html')
+def admin():
+    return render_template('admin.html')
+
 @app.route('/ask', methods=['POST'])
 def ask():
     user_input = request.form['user_input'].lower()
@@ -89,6 +93,15 @@ def ask():
                 break
         if not found_museum:
             response = GenerateResponse(user_input, "\n".join([f"User: {msg['user']}\nBot: {msg['bot']}" for msg in session['chat_history']]))
+    elif "book" in user_input or "ticket" in user_input or "booking" in user_input:
+        found_museum = False
+        for museum_name in museums_mumbai:
+            if museum_name.lower() in user_input:
+                response = f"To book tickets for {museum_name}, please visit the booking page: <a href='http://192.168.130.105:5000/bookPage.html' target='_blank'>Booking Page</a>"
+                found_museum = True
+                break
+        if not found_museum:
+            response = "Please specify a museum in Mumbai to book tickets for. For example, 'Book tickets for Chhatrapati Shivaji Maharaj Vastu Sangrahalaya'."
     else:
         response = GenerateResponse(user_input, "\n".join([f"User: {msg['user']}\nBot: {msg['bot']}" for msg in session['chat_history']]))
     
@@ -96,8 +109,6 @@ def ask():
     session.modified = True
     return jsonify({'response': response})
 
-
-
-if __name__ == '__main__':
+if __name__ == 'main':
     port = int(os.environ.get('PORT', 10000))  # Default to 10000
     app.run(host='0.0.0.0', port=port)
