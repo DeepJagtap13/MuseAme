@@ -4,8 +4,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chatbot</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon"> <!-- Favicon link -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <style>
+    /* Popup Styling */
+    .popup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 20px;
+      border: 1px solid #ccc;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      text-align: center;
+    }
+    .popup-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+    a.map-link {
+      color: #1a0dab;
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
   <div class="chat-container">
@@ -19,34 +51,42 @@
     </div>
   </div>
 
+  <!-- Popup for Booking Success -->
+  <div class="popup-overlay" id="popup-overlay"></div>
+  <div class="popup" id="success-popup">
+    <h3>Booking Successful!</h3>
+    <p>Your tickets have been booked successfully.</p>
+    <button onclick="closePopup()">OK</button>
+  </div>
+
   <script>
-    let isVoiceInput = false; // ✅ Track whether input was from voice
-  
-    // ✅ Voice Recognition (Speech to Text)
+    let isVoiceInput = false; // Track whether input was from voice
+
+    // Voice Recognition (Speech to Text)
     if ('webkitSpeechRecognition' in window) {
       const recognition = new webkitSpeechRecognition();
       recognition.continuous = false;
       recognition.lang = 'en-US';
-  
+
       document.getElementById('voice-button').addEventListener('click', function() {
-        isVoiceInput = true;  // ✅ Set flag when using voice input
+        isVoiceInput = true;
         recognition.start();
       });
-  
+
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript;
         document.getElementById('user-input').value = transcript;
-        sendMessage();  // ✅ Automatically send after voice input
+        sendMessage();
       };
-  
+
       recognition.onerror = function(event) {
         console.error('Speech recognition error:', event.error);
       };
     } else {
       document.getElementById('voice-button').disabled = true;
     }
-  
-    // ✅ Text-to-Speech (Speak only if input was voice-based)
+
+    // Text-to-Speech (Speak only if input was voice-based)
     function speakText(text) {
       if (isVoiceInput && 'speechSynthesis' in window) {
         const speech = new SpeechSynthesisUtterance(text);
@@ -55,46 +95,126 @@
         window.speechSynthesis.speak(speech);
       }
     }
-  
-    // ✅ AJAX Chat Function
-    function sendMessage() {
-      const userInput = document.getElementById('user-input').value.trim();
-      if (userInput !== "") {
-        appendMessage('You', userInput);
-        document.getElementById('user-input').value = '';
-  
-        // Placeholder for bot response
-        const botMessageElement = appendMessage('Bot', '<span class="thinking-icon"></span>');
-  
-        $.ajax({
-          type: 'POST',
-          url: '/ask',
-          data: { user_input: userInput },
-          success: function(data) {
-            botMessageElement.innerHTML = `<strong>Bot:</strong> ${data.response}`;
-  
-            if (isVoiceInput) {
-              speakText(data.response);  // ✅ Speak only if input was voice
-            }
-  
-            isVoiceInput = false;  // ✅ Reset flag after response
-          },
-          error: function(error) {
-            botMessageElement.innerHTML = `<strong>Bot:</strong> Something went wrong.`;
-          }
-        });
-      }
-    }
-  
+
+    // Append Message to Chatbox
     function appendMessage(sender, message) {
       const chatBox = document.getElementById('chat-box');
       const messageElement = document.createElement('div');
       messageElement.classList.add(sender === 'You' ? 'user-message' : 'bot-message');
+      // Convert Google Maps URLs to clickable links
+      message = message.replace(/(https:\/\/www\.google\.com\/maps\/[^\s]+)/g, '<a href="$1" target="_blank" class="map-link">$1</a>');
       messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
       chatBox.appendChild(messageElement);
       chatBox.scrollTop = chatBox.scrollHeight;
       return messageElement;
     }
+
+    // Popup Functions
+    function showPopup() {
+      document.getElementById('popup-overlay').style.display = 'block';
+      document.getElementById('success-popup').style.display = 'block';
+    }
+
+    function closePopup() {
+      document.getElementById('popup-overlay').style.display = 'none';
+      document.getElementById('success-popup').style.display = 'none';
+    }
+
+    // Razorpay Payment Function
+    function openRazorpay(data) {
+      console.log('Opening Razorpay with data:', data);
+      try {
+        const options = {
+          "key": data.key_id || "rzp_test_grMytIcY5TuC0o", // Use key_id from server or fallback
+          "amount": data.amount * 100, // Amount in paise
+          "currency": "INR",
+          "name": "Museum Booking",
+          "description": "Ticket Booking",
+          "order_id": data.order_id,
+          "handler": function(response) {
+            console.log('Payment successful:', response);
+            $.ajax({
+              type: 'POST',
+              url: '/payment_callback',
+              contentType: 'application/json',
+              data: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature
+              }),
+              success: function(callbackData) {
+                if (callbackData.status === 'success') {
+                  showPopup();
+                  appendMessage('Bot', callbackData.message); // Display confirmation
+                } else {
+                  appendMessage('Bot', callbackData.message || 'Payment processing failed.');
+                }
+              },
+              error: function(xhr, status, error) {
+                console.error('Payment callback error:', error);
+                appendMessage('Bot', 'Error processing payment callback.');
+              }
+            });
+          },
+          "prefill": {
+            "email": data.email
+          },
+          "theme": {
+            "color": "#3399cc"
+          }
+        };
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } catch (error) {
+        console.error('Razorpay initialization error:', error);
+        appendMessage('Bot', 'Failed to open payment gateway. Please try again.');
+      }
+    }
+
+    // AJAX Chat Function
+    function sendMessage() {
+      const userInput = document.getElementById('user-input').value.trim();
+      if (userInput !== "") {
+        appendMessage('You', userInput);
+        document.getElementById('user-input').value = '';
+
+        // Placeholder for bot response
+        const botMessageElement = appendMessage('Bot', '<span class="thinking-icon"></span>');
+
+        $.ajax({
+          type: 'POST',
+          url: '/ask',
+          data: { user_input: userInput },
+          success: function(data) {
+            console.log('Server response:', data);
+            botMessageElement.innerHTML = `<strong>Bot:</strong> ${data.response || data.message}`;
+            if (isVoiceInput) {
+              speakText(data.response || data.message);
+            }
+            isVoiceInput = false; // Reset flag after response
+
+            // Check if payment is required
+            if (data.order_id) {
+              openRazorpay(data);
+            }
+          },
+          error: function(xhr, status, error) {
+            console.error('AJAX error:', status, error);
+            botMessageElement.innerHTML = `<strong>Bot:</strong> Something went wrong. Status: ${status}, Error: ${error}`;
+            if (xhr.status === 404) {
+              botMessageElement.innerHTML += ' (Check server routing, e.g., Nginx configuration)';
+            }
+          }
+        });
+      }
+    }
+
+    // Handle Enter Key
+    document.getElementById('user-input').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
   </script>
-  </body>
+</body>
 </html>
